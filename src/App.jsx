@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './App.css'
-import { getMovieDetails, searchMovies } from './api'
+import { searchMovies } from './api'
 
 function Poster({ src, alt }) {
   if (!src || src === 'N/A') {
@@ -44,17 +44,9 @@ export default function App() {
     }
   }
 
-  async function openDetails(imdbID) {
-    setLoading(true)
+  function openDetails(movie) {
     setError('')
-    try {
-      const details = await getMovieDetails(imdbID)
-      setSelected(details)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    setSelected(movie)
   }
 
   return (
@@ -91,7 +83,7 @@ export default function App() {
             <button
               className="card"
               key={movie.imdbID}
-              onClick={() => openDetails(movie.imdbID)}
+              onClick={() => openDetails(movie)}
             >
               <Poster src={movie.Poster} alt={movie.Title} />
               <div className="card-body">

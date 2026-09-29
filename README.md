@@ -1,6 +1,6 @@
 # Movie Search App
 
-React app for searching movies with the iTunes Search API (no API key required). Packaged for Docker, Jenkins, Kubernetes (k3s), and Bitbucket Pipelines.
+React app for searching movies with the Wikipedia API (no API key required). Packaged for Docker, Jenkins, Kubernetes (k3s), and Bitbucket Pipelines.
 
 ## Local development
 

@@ -1,92 +1,119 @@
-const ITUNES_SEARCH = 'https://itunes.apple.com/search'
-const ITUNES_LOOKUP = 'https://itunes.apple.com/lookup'
+const WIKI_API = 'https://en.wikipedia.org/w/api.php'
 
-function posterFromArtwork(url) {
-  if (!url) return ''
-  return url.replace('100x100bb', '600x600bb').replace('100x100', '600x600')
+function yearFrom(title, extract) {
+  const fromTitle = title.match(/\((\d{4})/)
+  if (fromTitle) {
+    return fromTitle[1]
+  }
+  const fromPlot = (extract || '').match(/\b((?:19|20)\d{2})\b/)
+  return fromPlot ? fromPlot[1] : 'N/A'
 }
 
-function runtimeFromMillis(ms) {
-  if (!ms) return 'N/A'
-  const minutes = Math.round(ms / 60000)
-  return `${minutes} min`
+function displayTitle(title) {
+  return title
+    .replace(/\s*\(\d{4} film\)$/i, '')
+    .replace(/\s*\([^)]*film\)$/i, '')
+    .trim()
 }
 
-function yearFromDate(value) {
-  return value ? value.slice(0, 4) : 'N/A'
-}
-
-function mapItunesMovie(item) {
+function mapPage(page) {
+  const extract = page.extract || ''
+  const year = yearFrom(page.title, extract)
   return {
-    imdbID: String(item.trackId),
-    Title: item.trackName,
-    Year: yearFromDate(item.releaseDate),
+    imdbID: String(page.pageid),
+    wikiTitle: page.title,
+    Title: displayTitle(page.title),
+    Year: year,
     Type: 'movie',
-    Poster: posterFromArtwork(item.artworkUrl100),
-    Rated: item.contentAdvisoryRating || 'N/A',
-    Runtime: runtimeFromMillis(item.trackTimeMillis),
-    Genre: item.primaryGenreName || 'N/A',
-    imdbRating: item.trackExplicitness === 'explicit' ? 'Explicit' : 'N/A',
-    Director: item.artistName || 'N/A',
-    Released: item.releaseDate ? item.releaseDate.slice(0, 10) : 'N/A',
-    Plot: item.longDescription || item.shortDescription || 'No plot available.',
+    Poster: page.thumbnail?.source || '',
+    Rated: 'N/A',
+    Runtime: 'N/A',
+    Genre: 'Film',
+    Director: 'N/A',
+    Released: year,
+    Plot: extract || 'No plot available.',
   }
 }
 
-async function searchCountry(term, country) {
+async function wikiQuery(searchTerm) {
   const query = new URLSearchParams({
-    term,
-    entity: 'movie',
-    media: 'movie',
-    limit: '20',
-    country,
+    action: 'query',
+    generator: 'search',
+    gsrsearch: `${searchTerm} film`,
+    gsrlimit: '12',
+    prop: 'pageimages|extracts|info',
+    inprop: 'url',
+    exintro: '1',
+    explaintext: '1',
+    exchars: '400',
+    pithumbsize: '400',
+    pilicense: 'any',
+    format: 'json',
+    origin: '*',
   })
-  const response = await fetch(`${ITUNES_SEARCH}?${query.toString()}`)
+
+  const response = await fetch(`${WIKI_API}?${query.toString()}`, {
+    headers: {
+      'Api-User-Agent': 'MovieSearchApp/1.0 (local student project)',
+    },
+  })
+
+  if (response.status === 429) {
+    throw new Error('Movie search is busy. Wait a few seconds and try again.')
+  }
   if (!response.ok) {
     throw new Error('Unable to reach the movie database.')
   }
-  const data = await response.json()
-  return (data.results || [])
-    .filter((item) => item.trackId && item.trackName)
-    .map(mapItunesMovie)
+
+  return response.json()
 }
 
 export async function searchMovies(term) {
-  const countries = ['IN', 'US']
-  let lastError = null
+  const data = await wikiQuery(term)
+  const pages = Object.values(data.query?.pages || {})
+  const movies = pages
+    .sort((a, b) => (a.index || 0) - (b.index || 0))
+    .filter((page) => {
+      const extract = page.extract || ''
+      const title = page.title || ''
+      if (/soundtrack|album/i.test(title)) return false
+      if (/may refer to/i.test(extract)) return false
+      return Boolean(extract)
+    })
+    .map(mapPage)
 
-  for (const country of countries) {
-    try {
-      const movies = await searchCountry(term, country)
-      if (movies.length) {
-        return { Search: movies, country }
-      }
-    } catch (error) {
-      lastError = error
-    }
+  if (!movies.length) {
+    throw new Error('No movies found. Try another title.')
   }
 
-  if (lastError) {
-    throw lastError
-  }
-
-  throw new Error('No movies found. Try another title.')
+  return { Search: movies }
 }
 
-export async function getMovieDetails(trackId) {
+export async function getMovieDetails(wikiTitle) {
   const query = new URLSearchParams({
-    id: trackId,
-    entity: 'movie',
-    country: 'US',
+    action: 'query',
+    titles: wikiTitle,
+    prop: 'pageimages|extracts|info',
+    exintro: '1',
+    explaintext: '1',
+    exchars: '800',
+    pithumbsize: '500',
+    pilicense: 'any',
+    format: 'json',
+    origin: '*',
   })
-  const response = await fetch(`${ITUNES_LOOKUP}?${query.toString()}`)
+  const response = await fetch(`${WIKI_API}?${query.toString()}`, {
+    headers: {
+      'Api-User-Agent': 'MovieSearchApp/1.0 (local student project)',
+    },
+  })
   if (!response.ok) {
     throw new Error('Unable to load movie details.')
   }
   const data = await response.json()
-  const item = (data.results || []).find((row) => String(row.trackId) === String(trackId))
-  if (!item) {
+  const page = Object.values(data.query?.pages || {})[0]
+  if (!page || page.missing) {
     throw new Error('Movie details were not found.')
   }
-  return mapItunesMovie(item)
+  return mapPage(page)
 }
