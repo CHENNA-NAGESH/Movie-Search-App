@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
-import { getApiKey, getMovieDetails, saveApiKey, searchMovies } from './api'
+import { getMovieDetails, searchMovies } from './api'
 
 function Poster({ src, alt }) {
   if (!src || src === 'N/A') {
@@ -11,19 +11,12 @@ function Poster({ src, alt }) {
 
 export default function App() {
   const [query, setQuery] = useState('Inception')
-  const [apiKey, setApiKey] = useState(getApiKey)
   const [movies, setMovies] = useState([])
   const [selected, setSelected] = useState(null)
   const [status, setStatus] = useState('Search for a movie to get started.')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const version = import.meta.env.VITE_APP_VERSION || 'dev'
-
-  const hasResults = movies.length > 0
-  const hint = useMemo(
-    () => (apiKey ? 'Key saved in this browser.' : 'Get a free key at omdbapi.com'),
-    [apiKey],
-  )
 
   async function handleSearch(event) {
     event.preventDefault()
@@ -64,13 +57,6 @@ export default function App() {
     }
   }
 
-  function persistKey(event) {
-    event.preventDefault()
-    saveApiKey(apiKey)
-    setError('')
-    setStatus('API key saved. You can search now.')
-  }
-
   return (
     <main className="app">
       <header className="hero">
@@ -84,18 +70,6 @@ export default function App() {
         </div>
         <p className="version">build {version}</p>
       </header>
-
-      <form className="key-row" onSubmit={persistKey}>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(event) => setApiKey(event.target.value)}
-          placeholder="OMDb API key"
-          aria-label="OMDb API key"
-        />
-        <button type="submit">Save key</button>
-      </form>
-      <p className="status">{hint}</p>
 
       <form className="search-bar" onSubmit={handleSearch}>
         <input
@@ -111,7 +85,7 @@ export default function App() {
 
       {error ? <p className="error">{error}</p> : <p className="status">{status}</p>}
 
-      {hasResults && (
+      {movies.length > 0 && (
         <section className="grid" aria-label="Search results">
           {movies.map((movie) => (
             <button
@@ -142,7 +116,6 @@ export default function App() {
               {selected.Rated} · {selected.Runtime} · {selected.Genre}
             </p>
             <div className="chip-row">
-              <span className="chip">IMDb {selected.imdbRating}</span>
               <span className="chip">{selected.Director}</span>
               <span className="chip">{selected.Released}</span>
             </div>
