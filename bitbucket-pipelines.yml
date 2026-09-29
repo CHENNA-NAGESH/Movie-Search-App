@@ -1,0 +1,33 @@
+image: atlassian/default-image:4
+
+pipelines:
+  default:
+    - step:
+        name: Docker build
+        services:
+          - docker
+        caches:
+          - docker
+        script:
+          - export IMAGE_NAME=movie-search-app
+          - export IMAGE_TAG="${BITBUCKET_BUILD_NUMBER}"
+          - docker build --build-arg VITE_APP_VERSION="${IMAGE_TAG}" -t "${IMAGE_NAME}:${IMAGE_TAG}" -t "${IMAGE_NAME}:latest" .
+
+  custom:
+    deploy-k3s:
+      - step:
+          name: Docker build and k3s deploy
+          runs-on:
+            - self.hosted
+            - linux
+          script:
+            - export IMAGE_NAME=movie-search-app
+            - export IMAGE_TAG="${BITBUCKET_BUILD_NUMBER}"
+            - docker build --build-arg VITE_APP_VERSION="${IMAGE_TAG}" -t "${IMAGE_NAME}:${IMAGE_TAG}" -t "${IMAGE_NAME}:latest" .
+            - docker save "${IMAGE_NAME}:${IMAGE_TAG}" | sudo k3s ctr images import - || docker save "${IMAGE_NAME}:${IMAGE_TAG}" | k3s ctr images import -
+            - |
+              KCTL=kubectl
+              command -v kubectl >/dev/null 2>&1 || KCTL="k3s kubectl"
+              $KCTL apply -f k8s/
+              $KCTL set image deployment/movie-search-app movie-search-app=${IMAGE_NAME}:${IMAGE_TAG}
+              $KCTL rollout status deployment/movie-search-app --timeout=120s

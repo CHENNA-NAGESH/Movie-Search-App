@@ -1,0 +1,38 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0d14;
+  --bg-elevated: #141824;
+  --card: #1a1f2e;
+  --border: #2a3144;
+  --text: #f4f6fb;
+  --muted: #9aa3b8;
+  --accent: #e8b931;
+  --accent-2: #ff6b4a;
+  --danger: #ff6b7a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(232, 185, 49, 0.12), transparent 50%),
+    radial-gradient(900px 400px at 100% 0%, rgba(255, 107, 74, 0.1), transparent 45%),
+    var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
